@@ -11,25 +11,25 @@ import os
 
 
 if __name__ == '__main__':
-    n_steps = 200000
+    n_steps = 6000
     device = "cuda" if torch.cuda.is_available() else "cpu"
     batch_size = 48
     os.makedirs('images', exist_ok=True)
     os.makedirs('checkpoints', exist_ok=True)
     accelerator = Accelerator(mixed_precision='fp16')
 
-    dataset = torchvision.datasets.CIFAR10(
-        root="cifar",
+    #dataset = torchvision.datasets.CIFAR10(
+    #    root="cifar",
+    #    train=True,
+    #    download=True,
+    #    transform=T.Compose([T.ToTensor(), T.RandomHorizontalFlip()]),
+    #)
+    dataset = torchvision.datasets.MNIST(
+        root="mnist",
         train=True,
         download=True,
-        transform=T.Compose([T.ToTensor(), T.RandomHorizontalFlip()]),
+        transform=T.Compose([T.Resize((32, 32)), T.ToTensor(),]),
     )
-    # dataset = torchvision.datasets.MNIST(
-    #     root="mnist",
-    #     train=True,
-    #     download=True,
-    #     transform=T.Compose([T.Resize((32, 32)), T.ToTensor(),]),
-    # )
 
     def cycle(iterable):
         while True:
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     model = MFDiT(
         input_size=32,
         patch_size=2,
-        in_channels=3,
+        in_channels=1,
         dim=384,
         depth=12,
         num_heads=6,
@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.0)
 
-    meanflow = MeanFlow(channels=3,
+    meanflow = MeanFlow(channels=1,
                         image_size=32,
                         num_classes=10,
                         flow_ratio=0.50,
@@ -120,4 +120,5 @@ if __name__ == '__main__':
                 
     if accelerator.is_main_process:
         ckpt_path = f"checkpoints/step_{global_step}.pt"
+        model_module = model.module if hasattr(model, 'module') else model
         accelerator.save(model_module.state_dict(), ckpt_path)
