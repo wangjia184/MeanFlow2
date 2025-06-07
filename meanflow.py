@@ -127,27 +127,37 @@ class MeanFlow:
     def loss(self, model, x, c=None):
         batch_size = x.shape[0]
         device = x.device
+        assert c is None or c.shape[0] == batch_size
 
-        t, r = self.sample_t_r(batch_size, device)
+        t, r = self.sample_t_r(batch_size, device) #[B]
+        
+        t_ = rearrange(t, "b -> b 1 1 1") # [B] -> [B, 1, 1, 1]
+        r_ = rearrange(r, "b -> b 1 1 1") # [B] -> [B, 1, 1, 1]
 
-        t_ = rearrange(t, "b -> b 1 1 1")
-        r_ = rearrange(r, "b -> b 1 1 1")
+        e = torch.randn_like(x)  # Noise
+        x = self.normer.norm(x)  # Data
 
-        e = torch.randn_like(x)
-        x = self.normer.norm(x)
+        # Linear interpolation between x and e, time starts from 0.0 and end at 1.0
+        # 0    ≤    r   <    t    ≤   1
+        # |---------------------------|
+        # |<-- r -->|
+        # |<------ t ------->|
+        z = (1 - t_) * x + t_ * e  
 
-        z = (1 - t_) * x + t_ * e
-        v = e - x
+        v = e - x   # Conditional Velocity
 
         if c is not None:
             assert self.cfg_ratio is not None
             uncond = torch.ones_like(c) * self.num_classes
-            cfg_mask = torch.rand_like(c.float()) < self.cfg_ratio
-            c = torch.where(cfg_mask, uncond, c)
+            cfg_mask = torch.rand_like(c.float()) < self.cfg_ratio # Random booleans from Uniform Distribution between [0, 1]
+            c = torch.where(cfg_mask, uncond, c) # True to take uncond value; otherwise take c's value
+            
             if self.w is not None:
                 with torch.no_grad():
                     u_t = model(z, t, t, uncond)
-                v_hat = self.w * v + (1 - self.w) * u_t
+
+                # y_{hat} = y_{uncond} + scale * (y_{cond} - y_{uncond})
+                v_hat = self.w * v + (1 - self.w) * u_t 
                 if self.cfg_uncond == 'v':
                     # In the unconditional case, v = w * v + (1 - w) * u,
                     # so if we're choosing to use 'v' for uncond settings, we can just keep v.
@@ -171,6 +181,7 @@ class MeanFlow:
         else:
             u, dudt = self.jvp_fn(*jvp_args)
 
+        # u_{tgt} = v(z_t, t) - (t-r) \frac{d}{dt} u_\theta(z_t, r, t) \\
         u_tgt = v_hat - (t_ - r_) * dudt
 
         error = u - stopgrad(u_tgt)

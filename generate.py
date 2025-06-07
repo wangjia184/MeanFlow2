@@ -44,7 +44,7 @@ def generate_images(checkpoint_path, output_path, device='cuda'):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate images from MeanFlow model')
-    parser.add_argument('--checkpoint', type=str, default='./checkpoints/step_6000.0.pt', help='Path to model checkpoint')
+    parser.add_argument('--checkpoint', type=str, default='./checkpoints/checkpoint_8000.pt', help='Path to model checkpoint')
     parser.add_argument('--output', type=str, default='generated_images.png', help='Output image path')
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'], help='Device to use')
     
