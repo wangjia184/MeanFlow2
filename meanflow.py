@@ -166,6 +166,8 @@ class MeanFlow:
                     v_hat = torch.where(cfg_mask, v, v_hat)
             else:
                 v_hat = v
+        else:
+            v_hat = v
 
         # forward pass
         # u = model(z, t, r, y=c)

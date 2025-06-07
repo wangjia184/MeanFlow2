@@ -1,41 +1,98 @@
-<img src="assets/meanflow.gif" width="2000">
+## Derivation of the MeanFlow Identity
 
-# MeanFlow
+### Step 1: Definition of Average Velocity
+The average velocity $u(z_t, r, t)$ over the time interval $[r, t]$ is defined as:
+```math
+u(z_t, r, t) \triangleq \frac{1}{t-r} \int_r^t v(z_\tau, \tau) d\tau
+```
+where:
+- $z_t$ is the state at time $t$
+- $v(z_\tau, \tau)$ is the instantaneous velocity field
+- $t > r$ (time interval is positive)
 
-😈 This repository offers an **unofficial PyTorch implementation** of the paper [_Mean Flows for One-step Generative Modeling_](https://arxiv.org/pdf/2505.13447), building upon [Just-a-DiT](https://github.com/ArchiMickey/Just-a-DiT) and [EzAudio](https://github.com/haidog-yaqub/EzAudio).
+```
+  0    ≤    r   <    t    ≤   1
+  |---------------------------|
+  |<-- r -->|
+  |<------ t ------->|
+```
 
-💬 Contributions and feedback are very welcome — feel free to open an issue or pull request if you spot something or have ideas!
+---
 
-🛠️ This codebase is kept as clean and minimal as possible for easier integration into your own projects — thus, frameworks like Wandb are intentionally excluded.
+### Step 2: Rearranged Definition
+Multiply both sides by $(t-r)$:
+```math
+(t-r) u(z_t, r, t) = \int_r^t v(z_\tau, \tau) d\tau
+```
 
-## Examples
-**MNIST** -- 10k training steps, 1-step sample result:
 
-![MNIST](assets/mnist_10k.png)
 
-**MNIST** -- 6k training steps, 1-step CFG (w=2.0) sample result:
+---
 
-![MNIST-cfg](assets/mnist_6k_cfg2.png)
+### Step 3: Total Derivative with Respect to $t$
+Take the total derivative of both sides with respect to $t$ (note $z_t$ depends on $t$):
 
-**CIFAR-10** -- 200k training steps, 1-step CFG (w=2.0) sample result:
+**Left Side** (Product Rule):
+```math
+\frac{d}{dt} \left[(t-r) u(z_t, r, t)\right] = u(z_t, r, t) + (t-r) \frac{d}{dt} u(z_t, r, t)
+```
 
-![CIFAR-10-cfg](assets/cfg_200k_cfg2.png)
+**Right Side** (Fundamental Theorem of Calculus):
+```math
+\frac{d}{dt} \int_r^t v(z_\tau, \tau) d\tau = v(z_t, t)
+```
 
-## TODO
-- [x] Implement basic training and inference
-- [x] Enable multi-GPU training via 🤗 Accelerate
-- [x] Add support for Classifier-Free Guidance (CFG)
-- [x] Integrate latent image representation support
-- [ ] Add tricks like improved CFG mentioned in Appendix
-- [ ] Improve code clarity and structure, following 🤗 Diffusers style  
-- [ ] Extend to additional modalities (e.g., audio, speech)
 
-## Known Issues (PyTorch)
-- `jvp` is incompatible with Flash Attention and likely also with Triton, Mamba, and similar libraries.  
-- `jvp` significantly increases GPU memory usage, even when using `torch.utils.checkpoint`.
-- CFG is implemented implicitly, leading to some limitations:
-  - The CFG scale is fixed at training time and cannot be adjusted during inference.  
-  - Negative prompts are not supported, such as "noise" or "low quality" commonly used in text-to-image diffusion models.
-  
-## 🌟 Like This Project?
-If you find this repo helpful or interesting, consider dropping a ⭐ — it really helps and means a lot!
+
+---
+
+### Step 4: Expand Total Derivative of $u$
+The total derivative of $u(z_t, r, t)$ is:
+```math
+\frac{d}{dt} u(z_t, r, t) = \underbrace{\frac{\partial u}{\partial z_t} \cdot \frac{dz_t}{dt}}_{\text{Chain rule}} + \frac{\partial u}{\partial t}
+```
+
+Since $\frac{dz_t}{dt} = v(z_t, t)$ (by ODE definition) and $r$ is constant ($\frac{dr}{dt} = 0$):
+```math
+\frac{d}{dt} u(z_t, r, t) = \frac{\partial u}{\partial z_t} v(z_t, t) + \frac{\partial u}{\partial t}
+```
+
+
+
+---
+
+### Step 5: Establish Equality
+Combine results from Steps 3 and 4:
+```math
+u(z_t, r, t) + (t-r) \left( \frac{\partial u}{\partial z_t} v(z_t, t) + \frac{\partial u}{\partial t} \right) = v(z_t, t)
+```
+
+
+---
+
+### Step 6: MeanFlow Identity
+Rearrange to obtain the final identity:
+```math
+\boxed{u(z_t, r, t) = v(z_t, t) - (t-r) \left( \frac{\partial u}{\partial z_t} v(z_t, t) + \frac{\partial u}{\partial t} \right)}
+```
+
+
+
+---
+
+## Key Mathematical Insights
+1. **Total Derivative Necessity**  
+   The chain rule accounts for implicit ($z_t$) and explicit ($t$) dependencies:
+   ```math
+   \frac{du}{dt} = \nabla_{z_t} u \cdot \frac{dz_t}{dt} + \frac{\partial u}{\partial t}
+   ```
+
+2. **Boundary Condition**  
+   When $r \to t$:
+   ```math
+   \lim_{r \to t} u(z_t, r, t) = v(z_t, t)
+   ```
+   This ensures consistency with the instantaneous velocity field.
+
+3. **Time Symmetry**  
+   The derivation holds for $r > t$ by using $|t-r|$ in the denominator.

@@ -14,7 +14,7 @@ from ema_pytorch import EMA
 from accelerate import Accelerator
 from tqdm import tqdm
 
-from network import MFDiT
+from network import SiT
 from meanflow import MeanFlow
 
 
@@ -56,14 +56,23 @@ class MNISTTrainer(nn.Module):
         self.icdl = cycle(dl)
 
         # model and optimizer
-        self.model = MFDiT(
+        # Define block_kwargs from args
+        block_kwargs = {
+            "fused_attn": False, # JVP cannot use flash-attention
+            "qk_norm": False,
+        }
+        
+        self.model = SiT(
             input_size=input_size,
             patch_size=2,
             in_channels=1,
-            dim=384,
+            hidden_size=384,
+            decoder_hidden_size=384,
             depth=12,
             num_heads=6,
             num_classes=10,
+            use_cfg=True,
+            **block_kwargs
         )
         self.optimizer = AdamW(self.model.parameters(), lr=lr)
 
@@ -187,7 +196,8 @@ class MNISTTrainer(nn.Module):
 
 
 def main():
-    trainer = MNISTTrainer(load_checkpoint='checkpoint_6000.pt')
+    trainer = MNISTTrainer(ema_decay=0.9,
+                           load_checkpoint=None)
     trainer.train()
 
 
