@@ -1,10 +1,12 @@
 import torch
 from torchvision.utils import save_image
-from models.dit import MFDiT
+from network import MFDiT
 from meanflow import MeanFlow
+from ema_pytorch import EMA
 import argparse
 
 def generate_images(checkpoint_path, output_path, device='cuda'):
+    # 1. 创建模型和MeanFlow
     model = MFDiT(
         input_size=32,
         patch_size=2,
@@ -14,6 +16,9 @@ def generate_images(checkpoint_path, output_path, device='cuda'):
         num_heads=6,
         num_classes=10
     ).to(device)
+    
+    # 创建EMA包装器
+    ema = EMA(model)
     
     meanflow = MeanFlow(
         channels=1,
@@ -25,15 +30,19 @@ def generate_images(checkpoint_path, output_path, device='cuda'):
         cfg_scale=2.0
     )
     
-    # 2. 加载checkpoint
+    # 2. 加载checkpoint - 修正的关键部分
     checkpoint = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(checkpoint)
-    model.eval()
+    
+    # 加载模型权重到EMA包装器
+    ema.load_state_dict(checkpoint['ema_model'])
+    
+    # 使用EMA模型的ema_model进行推理
+    ema_model = ema.ema_model.eval()
     
     # 3. 生成图像
     with torch.no_grad():
         generated_images = meanflow.sample_each_class(
-            model, 
+            ema_model, 
             n_per_class=1, 
             device=device
         )
